@@ -21,8 +21,6 @@ const router = express.Router();
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    console.log(req.user);
-    console.log(await Appointment.findAll());
     const appointments = await Appointment.findAll({
       where: { userId: req.user.id },
       order: [['data', 'ASC'], ['horario', 'ASC']]
@@ -243,6 +241,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
  *         description: List of all appointments
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only veterinários can access
  */
 router.get('/vet/all', authenticateToken, async (req, res) => {
   try {

@@ -35,6 +35,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 15,
   },
+  pickerContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    marginBottom: 15,
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
   button: {
     backgroundColor: "#38a69d",
     width: "100%",
@@ -125,6 +134,10 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6,
+  },
+  iconPdf: {
+    alignItems: 'center',
+    marginTop: 10,
   },
 });
 export default styles;

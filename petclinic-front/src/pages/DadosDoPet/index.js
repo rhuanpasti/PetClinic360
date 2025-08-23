@@ -1,518 +1,432 @@
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
-  useWindowDimensions,
-  Animated,
-  Modal,
-  Dimensions,
-  Linking,
-  Image,
   Alert,
-  Platform,
+  TextInput,
+  Image,
 } from "react-native";
-
+import React, { useState, useContext, useEffect } from "react";
 import * as Animatable from "react-native-animatable";
 import styles from "./styles";
-import * as ImagePicker from "expo-image-picker";
-import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
-import { MaterialCommunityIcons, Feather, FontAwesome } from "@expo/vector-icons";
-import * as MediaLibrary from "expo-media-library";
-import * as FileSystem from "expo-file-system";
-// removed expo-permissions (deprecated). Use platform APIs via individual modules as needed
-import { KeyboardAvoidingView } from "react-native";
+import { API_BASE_URL } from "../config";
+import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 
 export default function DadosDoPet() {
-  const [nome, setNome] = useState("");
-  const [raca, setRaca] = useState("");
-  const [animal, setAnimal] = useState("");
-  const [peso, setPeso] = useState("");
-  const [idade, setIdade] = useState("");
   const [eventsPet, setEventsPet] = useState([]);
-  const { user: usuario } = useContext(AuthContext);
-  const [petName, setPetName] = useState("");
-  const [whatsapp, setWhatsapp] = useState(usuario?.whatsapp);
-  const [instagram, setInstagram] = useState(usuario?.instagram);
-  const [facebook, setFacebook] = useState(usuario?.facebook);
-  const [imagem, setImagem] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [nomePet, setNomePet] = useState("");
+  const [especie, setEspecie] = useState("");
+  const [raca, setRaca] = useState("");
+  const [idade, setIdade] = useState("");
+  const [peso, setPeso] = useState("");
+  const [cor, setCor] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { user: usuario, token } = useContext(AuthContext);
 
+  const especies = [
+    "Cão",
+    "Gato",
+    "Ave",
+    "Réptil",
+    "Peixe",
+    "Outros"
+  ];
+
+  // Load existing pets when component mounts
   useEffect(() => {
-    const userRef = ref(database, `user/${usuario.uid}`);
-    onValue(userRef, (snapshot) => {
-      const userData = snapshot.val();
-      setInstagram(userData.instagram);
-      setFacebook(userData.facebook);
-      setWhatsapp(userData.whatsapp);
-    });
+    console.log('useEffect chamado - usuario:', usuario, 'token:', token);
+    if (usuario && token) {
+      console.log('Carregando pets...');
+      loadPets();
+    } else {
+      console.log('Usuário ou token não disponível');
+    }
+  }, [usuario, token]);
 
-    const uid = usuario.uid;
-    const eventsRefPet = ref(database, `DadosPet/${uid}`);
-
-    onValue(eventsRefPet, (snapshot) => {
-      const eventsPet = [];
-
-      snapshot.forEach((childSnapshot) => {
-        const key = childSnapshot.key;
-        const nome = childSnapshot.val().nome;
-        const raca = childSnapshot.val().raca;
-        const peso = childSnapshot.val().peso;
-        const idade = childSnapshot.val().idade;
-        const animal = childSnapshot.val().animal;
-        const imagem = childSnapshot.val().imagem;
-
-        eventsPet.push({
-          key: key,
-          nome: nome,
-          raca: raca,
-          peso: peso,
-          idade: idade,
-          animal: animal,
-          imagem: imagem,
-        });
+  const loadPets = async () => {
+    console.log('loadPets chamada');
+    try {
+      setLoading(true);
+      console.log('Fazendo requisição para:', `${API_BASE_URL}/pets`);
+      const response = await fetch(`${API_BASE_URL}/pets`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
 
-      setEventsPet(eventsPet);
-    });
-
-    return () => {
-      // No need to off() for v9+ as it's not a listener
-    };
-  }, [usuario]);
-
-
-
-  function TesteDLink() {
-    const url =
-      "https://www.youtube.com/watch?v=0Uk-gytGg94&ab_channel=SkullMemeProductions";
-    Linking.openURL(url);
-  }
-  function Teste() {
-    alert("Okey");
-  }
-
-  const saveImage = async () => {
-    console.log(instagram);
-    console.log(facebook);
-    console.log(whatsapp);
-    // Get the URI of the QR code image
-
-    const imageUrl = `https://chart.googleapis.com/chart?chs=500x500&cht=qr&chl=https://didyoufindmypet.firebaseapp.com/home?${
-      petName != ""
-        ? "petName=" + encodeURIComponent(petName)
-        : "petName=" + encodeURIComponent("Não possui")
-    }+${"Dono=" + usuario.nome}${
-      instagram
-        ? "insta=" + encodeURIComponent(instagram)
-        : "insta=" + encodeURIComponent("Não possui")
-    }+${
-      facebook
-        ? "face=" + encodeURIComponent(facebook)
-        : "face=" + encodeURIComponent("Não possui")
-    }+${whatsapp ? "whats=" + whatsapp : "whats=" + usuario.telefone}`;
-
-    try {
-      if (Platform.OS === "android") {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert(
-            "Erro",
-            "Só é possível salvar as imagens caso o usuário aceite as permissões."
-          );
-          console.log("Permission denied");
-          return;
-        }
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Dados recebidos do backend:', data);
+        console.log('Status da resposta:', response.status);
+        // Transform backend data to match frontend format
+        const transformedPets = data.map(pet => {
+          console.log('Transformando pet:', pet);
+          return {
+            key: pet.id?.toString() || pet.key || Math.random().toString(),
+            nomePet: pet.name || pet.nome || pet.nomePet || '',
+            especie: pet.species || pet.especie || '',
+            raca: pet.breed || pet.raca || '',
+            idade: pet.age || pet.idade || 0,
+            peso: pet.weight || pet.peso || 0,
+            cor: pet.color || pet.cor || '',
+            imageUrl: pet.imageUrl || ''
+          };
+        });
+        console.log('Pets transformados:', transformedPets);
+        setEventsPet(transformedPets);
+      } else {
+        console.error('Failed to load pets');
       }
-
-      const { uri } = await FileSystem.downloadAsync(
-        imageUrl,
-        FileSystem.documentDirectory + "qr.png"
-      );
-      await MediaLibrary.saveToLibraryAsync(uri);
-      Alert.alert("Sucesso", "O QR code foi salvo na sua galeria!!");
     } catch (error) {
-      Alert.alert(
-        "",
-        "Ups, algo deu errado. Verifique se foram dadas as permissões requeridas."
-      );
+      console.error('Error loading pets:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const [pop, setPop] = useState(false);
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [qrVisible, setQrVisible] = useState(false);
-
-  const { width, height } = Dimensions.get("window"); // obtem as dimensões da tela do dispositivo
-
-  const handleSharePress = () => {
-    setModalVisible(true);
-  };
-
-  const handlePress = () => {
-    handleSharePress();
-    cadastroPet();
-  };
-
-  const selectImage = async () => {
-    let resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (resultado && resultado.assets && resultado.assets.length > 0 && !resultado.canceled) {
-      setImagem(resultado.assets[0].uri);
-    } else if (resultado && resultado.uri && resultado.cancelled === false) {
-      setImagem(resultado.uri);
-    }
-  };
-
-  const saveImageToFirebase = async (userId, image) => {
-    const response = await fetch(image);
-    const blob = await response.blob();
-
-    return blob;
-  };
-
-  const cadastroPet = async () => {
-    const uid = usuario.uid;
-    if (!nome || !raca || !animal || !peso || !idade || !imagem) {
-      Alert.alert("Erro", "Por favor, preencha todos os campos.");
+  const salvarPet = async () => {
+    console.log('salvarPet chamada');
+    console.log('aqui');
+    console.log(nomePet, especie, raca, idade, peso, cor);
+    if (!nomePet || !especie || !raca || !idade || !peso || !cor) {
+      Alert.alert("Aviso!", "Todos os campos são obrigatórios");
       return;
     }
+
     try {
-  
-      const imageUrl = imagem;
-      // Salvar dados do animal de estimação no Realtime Database (v9 modular used elsewhere)
-      const newRef = push(ref(database, `DadosPet/${uid}`));
-      await set(newRef, {
-        nome: nome,
-        raca: raca,
-        peso: peso,
-        idade: idade,
-        animal: animal,
-        imagem: imageUrl, // Adicionar URL da imagem aos dados do pet
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/pets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: nomePet,
+          species: especie,
+          breed: raca,
+          age: parseInt(idade),
+          weight: parseFloat(peso),
+          color: cor,
+          ownerId: usuario.id
+        })
       });
-      setNome("");
-      setRaca("");
-      setIdade("");
-      setAnimal("");
-      setPeso("");
-      setImagem(null); // Limpar imagem depois de salvar
-      Alert.alert("Sucesso!", "Pet cadastrado com sucesso!");
-      setModalVisible(false);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Pet criado com sucesso:', data);
+        console.log('Status da resposta:', response.status);
+        
+        // Adicionar o novo pet diretamente à lista se a API retornar os dados
+        if (data && data.id) {
+          const newPet = {
+            key: data.id.toString(),
+            nomePet: data.name || nomePet,
+            especie: data.species || especie,
+            raca: data.breed || raca,
+            idade: data.age || parseInt(idade),
+            peso: data.weight || parseFloat(peso),
+            cor: data.color || cor,
+            imageUrl: data.imageUrl || ''
+          };
+          setEventsPet(prevPets => [...prevPets, newPet]);
+        } else {
+          // Se não retornar dados, recarregar a lista
+          console.log('Recarregando lista de pets...');
+          await loadPets();
+        }
+
+        // Clear form
+        setNomePet("");
+        setEspecie("");
+        setRaca("");
+        setIdade("");
+        setPeso("");
+        setCor("");
+        
+        Alert.alert("Sucesso!", "Pet cadastrado com sucesso!");
+      } else {
+        const errorData = await response.json();
+        Alert.alert("Erro", errorData.error || "Erro ao cadastrar pet");
+      }
     } catch (error) {
-      console.log(error);
-      Alert.alert(
-        "Vixi",
-        "Erro ao realizar cadastro, tente novamente mais tarde."
-      );
+      console.error('Error creating pet:', error);
+      Alert.alert("Erro", "Erro ao cadastrar pet, tente novamente mais tarde.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const popIn = () => {
-    setPop(true);
+  const deletePet = async (event) => {
+    console.log('deletePet chamada para evento:', event);
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/pets/${event.key}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setEventsPet(eventsPet.filter(e => e.key !== event.key));
+        Alert.alert("Sucesso!", "Pet removido com sucesso!");
+      } else {
+        Alert.alert("Erro", "Erro ao remover pet");
+      }
+    } catch (error) {
+      console.error('Error deleting pet:', error);
+      Alert.alert("Erro", "Erro ao remover pet");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const popOut = () => {
-    setPop(false);
+  const updatePet = async () => {
+    console.log('updatePet chamada');
+    if (!nomePet || !especie || !raca || !idade || !peso || !cor) {
+      Alert.alert("Aviso!", "Todos os campos são obrigatórios");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/pets/${selectedEvent.key}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: nomePet,
+          species: especie,
+          breed: raca,
+          age: parseInt(idade),
+          weight: parseFloat(peso),
+          color: cor
+        })
+      });
+
+      if (response.ok) {
+        const updatedPets = eventsPet.map(pet => {
+          if (pet.key === selectedEvent.key) {
+            return {
+              ...pet,
+              nomePet: nomePet,
+              especie: especie,
+              raca: raca,
+              idade: idade,
+              peso: peso,
+              cor: cor
+            };
+          }
+          return pet;
+        });
+
+        setEventsPet(updatedPets);
+        setSelectedEvent(null);
+        
+        // Clear form
+        setNomePet("");
+        setEspecie("");
+        setRaca("");
+        setIdade("");
+        setPeso("");
+        setCor("");
+        
+        Alert.alert("Sucesso!", "Pet atualizado com sucesso!");
+      } else {
+        const errorData = await response.json();
+        Alert.alert("Erro", errorData.error || "Erro ao atualizar pet");
+      }
+    } catch (error) {
+      console.error('Error updating pet:', error);
+      Alert.alert("Erro", "Erro ao atualizar pet");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteEvent = (event) => {
-    const uid = usuario.uid;
-    const eventKey = event.key;
-    remove(ref(database, `DadosPet/${uid}/${eventKey}`));
+  const editPet = (event) => {
+    console.log('editPet chamada para evento:', event);
+    setSelectedEvent(event);
+    setNomePet(event.nomePet);
+    setEspecie(event.especie);
+    setRaca(event.raca);
+    setIdade(event.idade.toString());
+    setPeso(event.peso.toString());
+    setCor(event.cor);
   };
 
-  const openQr = (nomePet) => {
-    console.log("Linha 193 " + nomePet);
-    setPetName(nomePet);
-    console.log("Linha 195" + petName);
-    setQrVisible(true);
+  const cancelEdit = () => {
+    console.log('cancelEdit chamada');
+    setSelectedEvent(null);
+    setNomePet("");
+    setEspecie("");
+    setRaca("");
+    setIdade("");
+    setPeso("");
+    setCor("");
   };
-  const windowHeight = useWindowDimensions().height;
 
   return (
-    <View style={[styles.container]}>
-      <ScrollView>
+    <ScrollView style={styles.scroll}>
+      <View style={styles.container}>
         <Animatable.View
           animation="fadeInLeft"
           delay={500}
           style={styles.containerHeader}
         >
-          <Text style={styles.message}>Cadastre seu pet</Text>
+          <Text style={styles.message}>Dados do Pet</Text>
         </Animatable.View>
-        <Animatable.View
-          animation="fadeInUp"
-          style={[
-            styles.containerForm,
-            eventsPet.length <= 1
-              ? { height: windowHeight }
-              : { height: "100%" },
-          ]}
-        >
-          <Animatable.View
-            animation="fadeInLeft"
-            delay={1000}
-            style={styles.containerHeader2}
-          >
-            <Text style={styles.eventDate}>
-              "𝙋𝙖𝙧𝙖 𝙖𝙥𝙧𝙚𝙨𝙚𝙣𝙩𝙖𝙧 𝙢𝙖𝙞𝙨 𝙞𝙣𝙛𝙤𝙧𝙢𝙖𝙘̧𝙤̃𝙚𝙨 𝙦𝙪𝙚 𝙥𝙤𝙙𝙚𝙢
-            </Text>
-            <Text style={styles.eventDate}>
-              𝙖𝙟𝙪𝙙𝙖𝙧 𝙣𝙤 𝙧𝙚𝙨𝙜𝙖𝙩𝙚 𝙙𝙤 𝙨𝙚𝙪 𝙥𝙚𝙩, 𝙥𝙧𝙚𝙚𝙣𝙘𝙝a 𝙢𝙖𝙞𝙨{" "}
-            </Text>
-            <Text style={styles.eventDate}>
-              𝙙𝙖𝙙𝙤𝙨 𝙣𝙖 𝙖𝙧𝙚𝙖 𝙙𝙚 "𝙋𝙚𝙩 𝙁𝙞𝙣𝙙𝙚𝙧 𝙙𝙤 𝙨𝙚𝙪 𝙥𝙚𝙧𝙛𝙞𝙡"
-            </Text>
-            <Text style={styles.eventDate}>𝕊𝕖𝕦 "ℙ𝕖𝕥" 𝕖𝕞 𝕡𝕣𝕚𝕞𝕖𝕚𝕣𝕠 𝕝𝕦𝕘𝕒𝕣</Text>
-          </Animatable.View>
-          {
-            (console.log(eventsPet),
-            eventsPet.map((event) => (
-              <View
-                style={styles.eventContainer}
-                key={
-                  event.nome
-                } /* Para evitar o erro "Cada child em uma lista deve ter uma prop "chave" única", 
-                você precisa adicionar uma propriedade "key" única para cada elemento do array retornado pelo método "map()".*/
+        
+        <Animatable.View animation="fadeInUp" style={styles.containerForm}>
+          <Text style={styles.title}>Nome do Pet</Text>
+          <TextInput
+            style={styles.input}
+            value={nomePet}
+            onChangeText={setNomePet}
+            placeholder=" Nome do pet"
+            cursorColor="#38a69d"
+            placeholderTextColor="#BDBDBD"
+          />
+
+          <Text style={styles.title}>Espécie</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={especie}
+              onValueChange={(itemValue) => setEspecie(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Selecione a espécie" value="" />
+              {especies.map((esp) => (
+                <Picker.Item key={esp} label={esp} value={esp} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.title}>Raça</Text>
+          <TextInput
+            style={styles.input}
+            value={raca}
+            onChangeText={setRaca}
+            placeholder=" Raça do pet"
+            cursorColor="#38a69d"
+            placeholderTextColor="#BDBDBD"
+          />
+
+          <Text style={styles.title}>Idade (anos)</Text>
+          <TextInput
+            style={styles.input}
+            value={idade}
+            onChangeText={setIdade}
+            placeholder=" Idade em anos"
+            cursorColor="#38a69d"
+            placeholderTextColor="#BDBDBD"
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.title}>Peso (kg)</Text>
+          <TextInput
+            style={styles.input}
+            value={peso}
+            onChangeText={setPeso}
+            placeholder=" Peso em kg"
+            cursorColor="#38a69d"
+            placeholderTextColor="#BDBDBD"
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.title}>Cor</Text>
+          <TextInput
+            style={styles.input}
+            value={cor}
+            onChangeText={setCor}
+            placeholder=" Cor do pet"
+            cursorColor="#38a69d"
+            placeholderTextColor="#BDBDBD"
+          />
+
+          {selectedEvent === null ? (
+            <TouchableOpacity 
+              style={[styles.button, loading && { opacity: 0.6 }]} 
+              onPress={salvarPet}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "Salvando..." : "Cadastrar Pet"}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.button, loading && { opacity: 0.6 }]} 
+                onPress={updatePet}
+                disabled={loading}
               >
-                <View style={styles.imageContainer}>
-                  <Image source={{ uri: event.imagem }} style={styles.image} />
-                </View>
-                <Text style={styles.eventDate}>Nome do pet</Text>
-                <Text>{event.nome}</Text>
+                <Text style={styles.buttonText}>
+                  {loading ? "Atualizando..." : "Atualizar Pet"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.cancelButton, loading && { opacity: 0.6 }]} 
+                onPress={cancelEdit}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {console.log('Estado atual eventsPet:', eventsPet)}
+          {eventsPet.length === 0 ? (
+            <View style={styles.eventContainer}>
+              <Text style={styles.eventDate}>Nenhum pet cadastrado</Text>
+              <Text>Cadastre seu primeiro pet usando o formulário acima.</Text>
+            </View>
+          ) : (
+            eventsPet.map((event) => (
+              <View key={event.key} style={styles.eventContainer}>
+                {console.log('Renderizando evento:', event)}
+                <Text style={styles.eventDate}>Nome</Text>
+                <Text>{event.nomePet}</Text>
+                <Text style={styles.eventDate}>Espécie</Text>
+                <Text>{event.especie}</Text>
                 <Text style={styles.eventDate}>Raça</Text>
                 <Text>{event.raca}</Text>
-                <Text style={styles.eventDate}>Peso</Text>
-                <Text>{event.peso}</Text>
-                <Text style={styles.eventDate}>Que animal você tem ?</Text>
-                <Text>{event.animal}</Text>
                 <Text style={styles.eventDate}>Idade</Text>
-                <Text>{event.idade}</Text>
-
+                <Text>{event.idade} anos</Text>
+                <Text style={styles.eventDate}>Peso</Text>
+                <Text>{event.peso} kg</Text>
+                <Text style={styles.eventDate}>Cor</Text>
+                <Text>{event.cor}</Text>
+                
                 <View style={styles.eventActions}>
-                  <TouchableOpacity onPress={() => deleteEvent(event)}>
-                    <Text style={styles.actionButton2}>Deletar</Text>
+                  <TouchableOpacity
+                    onPress={() => editPet(event)}
+                    style={styles.editButton}
+                  >
+                    <Text style={styles.actionButton}>Editar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => openQr(event.nome)}>
-                    <Text style={styles.actionButton}>
-                      <MaterialCommunityIcons
-                        name="qrcode"
-                        style={styles.title2}
-                      />
-                    </Text>
+                  <TouchableOpacity onPress={() => deletePet(event)}>
+                    <Text style={styles.actionButton}>Deletar</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            )))
-          }
-
-          <View
-            style={{
-              flex: 1,
-            }}
-          >
-            <Animated.View>
-              <Modal
-                visible={modalVisible}
-                transparent={true}
-                animationType="slide" // adiciona uma animação de slide ao Modal
-              >
-                <KeyboardAvoidingView
-                  behavior="padding"
-                  style={[
-                    styles.modalContainer,
-                    { width: width * 1, height: height * 1 },
-                  ]}
-                >
-                  <Animatable.View
-                    animation="fadeInLeft"
-                    delay={500}
-                    style={styles.containerHeader3}
-                  >
-                    <TouchableOpacity onPress={selectImage}>
-                      {imagem ? (
-                        <Image
-                          source={{ uri: imagem }}
-                          style={styles.imagemPerfil}
-                        />
-                      ) : (
-                        <View style={styles.iconePerfil}>
-                          <Feather name="camera" size={24} color="black" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Nome do Pet</Text>
-                    <TextInput
-                      //placeholder="Nome"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      value={nome}
-                      onChangeText={(text) => setNome(text)}
-                      style={styles.input2}
-                    />
-                    <Text style={styles.title}>Raça</Text>
-                    <TextInput
-                      //placeholder="Nome"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      value={raca}
-                      onChangeText={(text) => setRaca(text)}
-                      style={styles.input2}
-                    />
-                    <Text style={styles.title}>Peso</Text>
-                    <TextInput
-                      //placeholder="Nome"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      keyboardType="number-pad"
-                      value={peso}
-                      onChangeText={(text) => setPeso(text)}
-                      style={styles.input2}
-                    />
-                    <Text style={styles.title}>
-                      Qual seu animal de estimação
-                    </Text>
-                    <TextInput
-                      //placeholder="Nome"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      value={animal}
-                      onChangeText={(text) => setAnimal(text)}
-                      style={styles.input2}
-                    />
-                    <Text style={styles.title}>Idade</Text>
-                    <TextInput
-                      //placeholder="Nome"
-                      autoCorrect={false}
-                      autoCapitalize="none"
-                      keyboardType="number-pad"
-                      value={idade}
-                      onChangeText={(text) => setIdade(text)}
-                      style={styles.input2}
-                    />
-                  </Animatable.View>
-
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => handlePress()}
-                  >
-                    <Text style={styles.buttonText}>Salvar</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => setModalVisible(false)}
-                  >
-                    <Text style={styles.buttonText}>Cancelar</Text>
-                  </TouchableOpacity>
-                </KeyboardAvoidingView>
-              </Modal>
-            </Animated.View>
-          </View>
-
-          <View
-            style={{
-              flex: 2,
-            }}
-          >
-            <Animated.View>
-              <Modal
-                visible={qrVisible}
-                transparent={true}
-                animationType="slide" // adiciona uma animação de slide ao Modal
-              >
-                <View
-                  style={[
-                    styles.modalContainer,
-                    {
-                      width: width * 1,
-                      height: height * 0.94,
-                      marginTop: "0%",
-                    },
-                  ]}
-                >
-                  <ScrollView>
-                    <Animatable.View
-                      animation="fadeInLeft"
-                      delay={500}
-                      style={styles.containerHeader3}
-                    >
-                      <Text
-                        style={[
-                          styles.message,
-                          { color: "black", marginTop: 25, color: "#38a69d" },
-                        ]}
-                      >
-                        QR code - Pet finder
-                      </Text>
-                      <Animatable.View
-                        animation="fadeInLeft"
-                        delay={1000}
-                        style={styles.containerHeader2}
-                      >
-                        <Text style={styles.eventDate}>
-                          "𝙋𝙖𝙧𝙖 𝙖𝙥𝙧𝙚𝙨𝙚𝙣𝙩𝙖𝙧 𝙢𝙖𝙞𝙨 𝙞𝙣𝙛𝙤𝙧𝙢𝙖𝙘̧𝙤̃𝙚𝙨 𝙦𝙪𝙚 𝙥𝙤𝙙𝙚𝙢
-                        </Text>
-                        <Text style={styles.eventDate}>
-                          𝙖𝙟𝙪𝙙𝙖𝙧 𝙣𝙤 𝙧𝙚𝙨𝙜𝙖𝙩𝙚 𝙙𝙤 𝙨𝙚𝙪 𝙥𝙚𝙩, 𝙥𝙧𝙚𝙚𝙣𝙘𝙝a 𝙢𝙖𝙞𝙨{" "}
-                        </Text>
-                        <Text style={styles.eventDate}>
-                          𝙙𝙖𝙙𝙤𝙨 𝙣𝙖 𝙖𝙧𝙚𝙖 𝙙𝙚 "𝙋𝙚𝙩 𝙁𝙞𝙣𝙙𝙚𝙧 𝙙𝙤 𝙨𝙚𝙪 𝙥𝙚𝙧𝙛𝙞𝙡"
-                        </Text>
-                      </Animatable.View>
-                      <Image
-                        style={[styles.logo, { marginTop: "10%" }]}
-                        source={{
-                          uri: `https://chart.googleapis.com/chart?chs=500x500&cht=qr&chl=https://didyoufindmypet.firebaseapp.com/home?${
-                            petName != ""
-                              ? "petName=" + encodeURIComponent(petName)
-                              : "petName=" + encodeURIComponent("Não possui")
-                          }+${"Dono=" + usuario.nome}${
-                            instagram
-                              ? "insta=" + encodeURIComponent(instagram)
-                              : "insta=" + encodeURIComponent("Não possui")
-                          }+${
-                            facebook
-                              ? "face=" + encodeURIComponent(facebook)
-                              : "face=" + encodeURIComponent("Não possui")
-                          }+${
-                            whatsapp
-                              ? "whats=" + whatsapp
-                              : "whats=" + usuario.telefone
-                          }`,
-                        }}
-                      />
-                    </Animatable.View>
-                  </ScrollView>
-
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => saveImage()}
-                  >
-                    <Text style={styles.buttonText}>Salvar QR code</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => setQrVisible(false)}
-                  >
-                    <Text style={styles.buttonText}>Fechar</Text>
-                  </TouchableOpacity>
-                </View>
-              </Modal>
-            </Animated.View>
-          </View>
+            ))
+          )}
         </Animatable.View>
-      </ScrollView>
-      <TouchableOpacity style={styles.circle} onPress={handleSharePress}>
-        <FontAwesome name="plus" size={25} color="#FFFF" />
-      </TouchableOpacity>
-    </View>
+      </View>
+    </ScrollView>
   );
 }

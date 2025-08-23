@@ -6,7 +6,6 @@ const connStr = process.env.CONNECTION_STRING;
 async function createTable() {
   try {
     await sql.connect(connStr);
-    console.log("Conectou!");
     const table = new sql.Table('Clientes');
     table.create = true;
     table.columns.add('ID', sql.Int, { nullable: false, primary: true });
@@ -17,7 +16,6 @@ async function createTable() {
     table.rows.add(3, 'teste3', '12312312399');
     const request = new sql.Request();
     await request.bulk(table);
-    console.log("Tabela criada e populada!");
     await sql.close();
   } catch (err) {
     console.error(err);

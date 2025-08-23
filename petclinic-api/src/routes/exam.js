@@ -1,20 +1,40 @@
 const express = require('express');
 const Exam = require('../models/Exam');
+const User = require('../models/User');
+const Pet = require('../models/Pet');
+const authenticateToken = require('../middleware/auth');
+
 const router = express.Router();
 
 /**
  * @swagger
  * /exams:
  *   get:
- *     summary: Get all exams
+ *     summary: Get all exams for the authenticated user
  *     tags: [Exams]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of exams
+ *       401:
+ *         description: Unauthorized
  */
-router.get('/', async (req, res) => {
-  const exams = await Exam.findAll();
-  res.json(exams);
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const exams = await Exam.findAll({
+      where: { userId: req.user.id },
+      include: [
+        { model: Pet, attributes: ['nome', 'especie'] }
+      ],
+      order: [['data', 'ASC'], ['horario', 'ASC']]
+    });
+    
+    res.json(exams);
+  } catch (err) {
+    console.error('Error loading exams:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -36,10 +56,24 @@ router.get('/', async (req, res) => {
  *       404:
  *         description: Exam not found
  */
-router.get('/:id', async (req, res) => {
-  const exam = await Exam.findByPk(req.params.id);
-  if (!exam) return res.status(404).json({ error: 'Exam not found' });
-  res.json(exam);
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const exam = await Exam.findOne({
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      },
+      include: [
+        { model: Pet, attributes: ['nome', 'especie'] }
+      ]
+    });
+    
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+    res.json(exam);
+  } catch (err) {
+    console.error('Error getting exam:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -58,9 +92,55 @@ router.get('/:id', async (req, res) => {
  *       201:
  *         description: Exam created
  */
-router.post('/', async (req, res) => {
-  const exam = await Exam.create(req.body);
-  res.status(201).json(exam);
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { data, horario, tipoExame, petId } = req.body;
+    
+    // Validate required fields
+    if (!data || !horario || !tipoExame || !petId) {
+      return res.status(400).json({ 
+        error: 'Todos os campos são obrigatórios: data, horario, tipoExame, petId' 
+      });
+    }
+
+    // Verify if pet belongs to user
+    const pet = await Pet.findOne({
+      where: { 
+        id: petId,
+        ownerId: req.user.id 
+      }
+    });
+
+    if (!pet) {
+      return res.status(400).json({ 
+        error: 'Pet não encontrado ou não pertence ao usuário' 
+      });
+    }
+
+    const exam = await Exam.create({
+      petId,
+      userId: req.user.id,
+      tipoExame,
+      data,
+      horario,
+      status: 'agendado'
+    });
+
+    // Return the created exam with pet info
+    const examWithPet = await Exam.findByPk(exam.id, {
+      include: [
+        { model: Pet, attributes: ['nome', 'especie'] }
+      ]
+    });
+
+    res.status(201).json({ 
+      message: 'Exame agendado com sucesso',
+      exam: examWithPet
+    });
+  } catch (err) {
+    console.error('Error creating exam:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -88,11 +168,59 @@ router.post('/', async (req, res) => {
  *       404:
  *         description: Exam not found
  */
-router.put('/:id', async (req, res) => {
-  const exam = await Exam.findByPk(req.params.id);
-  if (!exam) return res.status(404).json({ error: 'Exam not found' });
-  await exam.update(req.body);
-  res.json({ message: 'Exam updated' });
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { data, horario, tipoExame, petId } = req.body;
+    
+    // Validate required fields
+    if (!data || !horario || !tipoExame || !petId) {
+      return res.status(400).json({ 
+        error: 'Todos os campos são obrigatórios: data, horario, tipoExame, petId' 
+      });
+    }
+
+    const exam = await Exam.findOne({
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      }
+    });
+
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+
+    // Verify if pet belongs to user
+    const pet = await Pet.findOne({
+      where: { 
+        id: petId,
+        ownerId: req.user.id 
+      }
+    });
+
+    if (!pet) {
+      return res.status(400).json({ 
+        error: 'Pet não encontrado ou não pertence ao usuário' 
+      });
+    }
+
+    await exam.update({
+      data,
+      horario,
+      tipoExame,
+      petId
+    });
+
+    res.json({ 
+      message: 'Exame atualizado com sucesso',
+      exam: await Exam.findByPk(exam.id, {
+        include: [
+          { model: Pet, attributes: ['nome', 'especie'] }
+        ]
+      })
+    });
+  } catch (err) {
+    console.error('Error updating exam:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**
@@ -114,11 +242,61 @@ router.put('/:id', async (req, res) => {
  *       404:
  *         description: Exam not found
  */
-router.delete('/:id', async (req, res) => {
-  const exam = await Exam.findByPk(req.params.id);
-  if (!exam) return res.status(404).json({ error: 'Exam not found' });
-  await exam.destroy();
-  res.json({ message: 'Exam deleted' });
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const exam = await Exam.findOne({
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      }
+    });
+
+    if (!exam) return res.status(404).json({ error: 'Exam not found' });
+
+    await exam.destroy();
+    res.json({ message: 'Exame cancelado com sucesso' });
+  } catch (err) {
+    console.error('Error deleting exam:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /exams/vet/all:
+ *   get:
+ *     summary: Get all exams for veterinarians
+ *     tags: [Exams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all exams
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Only veterinarians can access
+ */
+router.get('/vet/all', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is a veterinarian
+    if (req.user.role !== 'vet') {
+      return res.status(403).json({ error: 'Acesso negado. Apenas veterinários podem ver todos os exames.' });
+    }
+
+    const exams = await Exam.findAll({
+      include: [
+        { model: User, attributes: ['nome', 'email'] },
+        { model: Pet, attributes: ['nome', 'especie'] }
+      ],
+      order: [['data', 'ASC'], ['horario', 'ASC']]
+    });
+    
+    res.json(exams);
+  } catch (err) {
+    console.error('Error loading vet exams:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

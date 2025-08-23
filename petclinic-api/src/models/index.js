@@ -11,6 +11,9 @@ Pet.belongsTo(User, { foreignKey: 'ownerId' });
 Pet.hasMany(Exam, { foreignKey: 'petId' });
 Exam.belongsTo(Pet, { foreignKey: 'petId' });
 
+User.hasMany(Exam, { foreignKey: 'userId' });
+Exam.belongsTo(User, { foreignKey: 'userId' });
+
 User.hasMany(Appointment, { foreignKey: 'userId' });
 Appointment.belongsTo(User, { foreignKey: 'userId' });
 
