@@ -7,12 +7,13 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import * as Animatable from "react-native-animatable";
 import { Calendar } from "react-native-calendars";
 import { LocaleConfig } from "react-native-calendars";
 import styles from "./styles";
 import { AuthContext } from "../../contexts/AuthContext";
+import { API_BASE_URL } from "../config";
 
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 
@@ -66,8 +67,9 @@ export default function Home() {
   const [horarioSelecionado, setHorarioSelecionado] = useState("");
   const [selecionouUmDia, setselecionouUmDia] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const { user: usuario } = useContext(AuthContext);
+  const { user: usuario, token } = useContext(AuthContext);
 
   const horarios = [
     "09:00",
@@ -79,6 +81,47 @@ export default function Home() {
     "15:00",
     "16:00",
   ];
+
+  // Load existing appointments when component mounts
+  useEffect(() => {
+    if (usuario && token) {
+      loadAppointments();
+    }
+  }, [usuario, token]);
+
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/appointments`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Transform backend data to match frontend format
+        const transformedEvents = data.map(appointment => ({
+          key: appointment.id.toString(),
+          data: appointment.data,
+          horario: appointment.horario,
+          sintomas: appointment.sintomas,
+          laudo: appointment.laudo,
+          receituario: appointment.receituario,
+          status: appointment.status
+        }));
+        setEvents(transformedEvents);
+      } else {
+        console.error('Failed to load appointments');
+      }
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const agendar = async () => {
     if (selectedDate == null || selectedDate == "") {
@@ -95,32 +138,80 @@ export default function Home() {
     }
 
     try {
-      const newEvent = {
-        key: Date.now().toString(),
-        data: selectedDate,
-        horario: horarioSelecionado,
-        sintomas: text,
-        laudo: null,
-        receituario: null,
-      };
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/appointments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          data: selectedDate,
+          horario: horarioSelecionado,
+          sintomas: text
+        })
+      });
 
-      setEvents([...events, newEvent]);
-      setSelectedDate("");
-      setHorarioSelecionado("");
-      setText("");
-      setselecionouUmDia(false);
-      Alert.alert("Sucesso!", "Agendamento realizado com sucesso!");
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add new appointment to local state
+        const newEvent = {
+          key: data.appointment.id.toString(),
+          data: data.appointment.data,
+          horario: data.appointment.horario,
+          sintomas: data.appointment.sintomas,
+          laudo: data.appointment.laudo,
+          receituario: data.appointment.receituario,
+          status: data.appointment.status
+        };
+
+        setEvents([...events, newEvent]);
+        setSelectedDate("");
+        setHorarioSelecionado("");
+        setText("");
+        setselecionouUmDia(false);
+        Alert.alert("Sucesso!", "Agendamento realizado com sucesso!");
+      } else {
+        const errorData = await response.json();
+        Alert.alert("Erro", errorData.error || "Erro ao realizar agendamento");
+      }
     } catch (error) {
-      console.log(error);
+      console.error('Error creating appointment:', error);
       Alert.alert("Erro", "Erro ao realizar agendamento, tente novamente mais tarde.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteEvent = (event) => {
-    setEvents(events.filter(e => e.key !== event.key));
+  const deleteEvent = async (event) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/appointments/${event.key}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setEvents(events.filter(e => e.key !== event.key));
+        Alert.alert("Sucesso!", "Consulta cancelada com sucesso!");
+      } else {
+        Alert.alert("Erro", "Erro ao cancelar consulta");
+      }
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      Alert.alert("Erro", "Erro ao cancelar consulta");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateEvent = () => {
+  const updateEvent = async () => {
     if (selectedDate == null || selectedDate == "") {
       Alert.alert("Aviso!", "Nenhuma data selecionada");
       return;
@@ -134,23 +225,51 @@ export default function Home() {
       return;
     }
 
-    const updatedEvents = events.map(event => {
-      if (event.key === selectedEvent.key) {
-        return {
-          ...event,
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`${API_BASE_URL}/appointments/${selectedEvent.key}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
           data: selectedDate,
           horario: horarioSelecionado,
-          sintomas: text,
-        };
-      }
-      return event;
-    });
+          sintomas: text
+        })
+      });
 
-    setEvents(updatedEvents);
-    setSelectedEvent(null);
-    setHorarioSelecionado("");
-    setSelectedDate("");
-    setText("");
+      if (response.ok) {
+        const updatedEvents = events.map(event => {
+          if (event.key === selectedEvent.key) {
+            return {
+              ...event,
+              data: selectedDate,
+              horario: horarioSelecionado,
+              sintomas: text,
+            };
+          }
+          return event;
+        });
+
+        setEvents(updatedEvents);
+        setSelectedEvent(null);
+        setHorarioSelecionado("");
+        setSelectedDate("");
+        setText("");
+        Alert.alert("Sucesso!", "Consulta atualizada com sucesso!");
+      } else {
+        const errorData = await response.json();
+        Alert.alert("Erro", errorData.error || "Erro ao atualizar consulta");
+      }
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      Alert.alert("Erro", "Erro ao atualizar consulta");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selecionarDia = (day) => {
@@ -238,13 +357,25 @@ export default function Home() {
           />
 
           {selectedEvent === null ? (
-            <TouchableOpacity style={styles.button} onPress={agendar}>
-              <Text style={styles.buttonText}>Agendar consulta</Text>
+            <TouchableOpacity 
+              style={[styles.button, loading && { opacity: 0.6 }]} 
+              onPress={agendar}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "Salvando..." : "Agendar consulta"}
+              </Text>
             </TouchableOpacity>
           ) : (
             <View>
-              <TouchableOpacity style={styles.button} onPress={updateEvent}>
-                <Text style={styles.buttonText}>Atualizar consulta</Text>
+              <TouchableOpacity 
+                style={[styles.button, loading && { opacity: 0.6 }]} 
+                onPress={updateEvent}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? "Atualizando..." : "Atualizar consulta"}
+                </Text>
               </TouchableOpacity>
             </View>
           )}

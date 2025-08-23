@@ -18,7 +18,7 @@ export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
-  const { logar, logarVt } = useContext(AuthContext);
+  const { logar } = useContext(AuthContext);
 
   function handleLogin() {
     return async () => {
@@ -48,7 +48,6 @@ export default function SignIn() {
 
         // setError(false);
         logar(email, password);
-        logarVt(email, password);
       } catch (error) {
         console.log(error);
         Alert.alert("Erro", "Senha inválida.");

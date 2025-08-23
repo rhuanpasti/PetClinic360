@@ -17,11 +17,13 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const petRoutes = require('./routes/pet');
 const examRoutes = require('./routes/exam');
+const appointmentRoutes = require('./routes/appointment');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/pets', petRoutes);
 app.use('/api/exams', examRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
