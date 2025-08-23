@@ -1,7 +1,7 @@
-const sequelize = require('./config/database');
-const User = require('./models/User');
-const Pet = require('./models/Pet');
-const Exam = require('./models/Exam');
+const sequelize = require('../config/database');
+const User = require('./User');
+const Pet = require('./Pet');
+const Exam = require('./Exam');
 
 // Associations
 User.hasMany(Pet, { foreignKey: 'ownerId' });

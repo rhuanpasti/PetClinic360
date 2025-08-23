@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Text, View } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import PerfilVt from "../PerfilVt";
@@ -8,7 +8,7 @@ import ExamesVt from "../ExamesVt";
 
 const Tab = createBottomTabNavigator();
 
-export default function HomeUser() {
+export default function HomeVt() {
   return (
     <Tab.Navigator screenOptions={{ tabBarActiveTintColor: "#e91e63" }}>
       <Tab.Screen
