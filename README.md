@@ -197,22 +197,4 @@ The system uses the following main entities:
 - Deploy to app stores (Google Play, App Store)
 - Configure production API endpoints
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For support and questions, please contact the development team or create an issue in the repository.
-
----
-
 **PetClinic360** - Modern veterinary clinic management made simple! 🏥🐕
