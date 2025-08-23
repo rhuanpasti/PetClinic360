@@ -143,31 +143,9 @@ The API will be available at `http://localhost:5000`
 
 5. Use Expo Go app to scan the QR code and run on your device
 
-## 📚 API Endpoints
+## 📚 API Documentation
 
-### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-
-### Users
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get user by ID
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
-
-### Pets
-- `GET /api/pets` - Get all pets
-- `GET /api/pets/:id` - Get pet by ID
-- `POST /api/pets` - Create new pet
-- `PUT /api/pets/:id` - Update pet
-- `DELETE /api/pets/:id` - Delete pet
-
-### Exams
-- `GET /api/exams` - Get all exams
-- `GET /api/exams/:id` - Get exam by ID
-- `POST /api/exams` - Create new exam
-- `PUT /api/exams/:id` - Update exam
-- `DELETE /api/exams/:id` - Delete exam
+Complete API documentation can be found in the Swagger docs at `/api/docs` when the backend server is running.
 
 ## 🔧 Development
 

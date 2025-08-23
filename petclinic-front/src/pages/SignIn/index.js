@@ -29,24 +29,24 @@ export default function SignIn() {
       }
 
       try {
-        const emailExists = await fetchSignInMethodsForEmail(auth, email);
+        // // const emailExists = await fetchSignInMethodsForEmail(auth, email);
 
-        if (emailExists.length === 0) {
-          setError(true);
-          Alert.alert("Erro", "O email não está cadastrado.");
-          return;
-        }
+        // // if (emailExists.length === 0) {
+        // //   setError(true);
+        // //   Alert.alert("Erro", "O email não está cadastrado.");
+        // //   return;
+        // // }
 
-        if (!emailExists.includes("password")) {
-          setError(true);
-          Alert.alert(
-            "Erro",
-            "Este email está cadastrado com um provedor de autenticação externo."
-          );
-          return;
-        }
+        // // if (!emailExists.includes("password")) {
+        // //   setError(true);
+        // //   Alert.alert(
+        // //     "Erro",
+        // //     "Este email está cadastrado com um provedor de autenticação externo."
+        // //   );
+        // //   return;
+        // // }
 
-        setError(false);
+        // setError(false);
         logar(email, password);
         logarVt(email, password);
       } catch (error) {
