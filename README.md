@@ -2,6 +2,8 @@
 
 A comprehensive veterinary clinic management system with a React Native mobile app frontend and Node.js/Express backend API.
 
+## No longer maintained. For learning/reference only. ##
+
 ## 🏗️ Project Structure
 
 ```
